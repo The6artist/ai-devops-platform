@@ -2,12 +2,16 @@ pipeline {
     agent {
         docker {
             image 'python:3.12-slim'
-            args '-u root:root'
+            args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
 
     options {
         timestamps()
+    }
+
+    environment {
+        DOCKER_IMAGE = 'dima261102/vice-city-api'
     }
 
     stages {
@@ -18,38 +22,71 @@ pipeline {
             }
         }
 
-        stage('Verify Python') {
-            steps {
-                sh 'python --version'
-                sh 'python -m pip --version'
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
-                echo 'Installing application and test dependencies...'
-                sh 'python -m pip install --upgrade pip'
                 sh 'python -m pip install -r requirements.txt'
             }
         }
 
         stage('Run Automated Tests') {
             steps {
-                echo 'Running the Pytest test suite...'
                 sh 'python -m pytest -v'
+            }
+        }
+
+        stage('Install Docker CLI') {
+            steps {
+                sh '''
+                    apt-get update
+                    apt-get install -y docker.io
+                    docker --version
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    docker build \
+                      -t $DOCKER_IMAGE:$BUILD_NUMBER \
+                      -t $DOCKER_IMAGE:latest .
+                '''
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKERHUB_USER',
+                        passwordVariable: 'DOCKERHUB_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set +x
+                        echo "$DOCKERHUB_TOKEN" | docker login \
+                          -u "$DOCKERHUB_USER" --password-stdin
+
+                        docker push $DOCKER_IMAGE:$BUILD_NUMBER
+                        docker push $DOCKER_IMAGE:latest
+
+                        docker logout
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'CI pipeline completed successfully. All stages passed.'
+            echo 'Tests passed. Docker image published successfully.'
         }
         failure {
-            echo 'CI pipeline failed. Review the stage logs to identify the problem.'
+            echo 'Pipeline failed. Check the console output.'
         }
         always {
-            echo 'Python CI pipeline execution finished.'
+            echo 'Pipeline execution finished.'
         }
     }
 }

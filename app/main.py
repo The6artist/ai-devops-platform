@@ -15,10 +15,12 @@ app = FastAPI(
 )
 
 
-# Database file location: project-root/players.db
+# Database file location: project-root/data/players.db
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATABASE_PATH = BASE_DIR / "players.db"
+DATABASE_DIR = BASE_DIR / "data"
+DATABASE_DIR.mkdir(exist_ok=True)
+DATABASE_PATH = DATABASE_DIR / "players.db"
 
 
 # Database connection manager
