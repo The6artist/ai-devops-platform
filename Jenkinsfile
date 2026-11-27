@@ -1,3 +1,4 @@
+
 pipeline {
     agent {
         docker {
@@ -15,44 +16,6 @@ pipeline {
     }
 
     stages {
-
-       
-        stage('Deploy to EC2') {
-            steps {
-                echo 'Deploying application to EC2...'
-
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub-credentials',
-                        usernameVariable: 'DOCKERHUB_USER',
-                        passwordVariable: 'DOCKERHUB_TOKEN'
-                    )
-                ]) {
-                    sh '''
-                        set +x
-
-                        echo "$DOCKERHUB_TOKEN" | docker login \
-                          -u "$DOCKERHUB_USER" --password-stdin
-
-                        docker pull $DOCKER_IMAGE:$BUILD_NUMBER
-
-                        docker stop vice-city-api || true
-                        docker rm vice-city-api || true
-
-                        docker run -d \
-                          --name vice-city-api \
-                          --restart unless-stopped \
-                          -p 8000:8000 \
-                          -v vice-city-data:/app/data \
-                          $DOCKER_IMAGE:$BUILD_NUMBER
-
-                        docker logout
-                    '''
-                }
-            }
-        }
-
-
 
         stage('Checkout') {
             steps {
@@ -104,6 +67,7 @@ pipeline {
                 ]) {
                     sh '''
                         set +x
+
                         echo "$DOCKERHUB_TOKEN" | docker login \
                           -u "$DOCKERHUB_USER" --password-stdin
 
@@ -115,15 +79,52 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy to EC2') {
+            steps {
+                echo 'Deploying application to EC2...'
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKERHUB_USER',
+                        passwordVariable: 'DOCKERHUB_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set +x
+
+                        echo "$DOCKERHUB_TOKEN" | docker login \
+                          -u "$DOCKERHUB_USER" --password-stdin
+
+                        docker pull $DOCKER_IMAGE:$BUILD_NUMBER
+
+                        docker stop vice-city-api || true
+                        docker rm vice-city-api || true
+
+                        docker run -d \
+                          --name vice-city-api \
+                          --restart unless-stopped \
+                          -p 8000:8000 \
+                          -v vice-city-data:/app/data \
+                          $DOCKER_IMAGE:$BUILD_NUMBER
+
+                        docker logout
+                    '''
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo 'Tests passed. Docker image published successfully.'
+            echo 'CI/CD pipeline completed successfully. Application deployed to EC2.'
         }
+
         failure {
             echo 'Pipeline failed. Check the console output.'
         }
+
         always {
             echo 'Pipeline execution finished.'
         }
