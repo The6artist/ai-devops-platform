@@ -80,6 +80,18 @@ pipeline {
             }
         }
 
+        stage('Approval for Deployment') {
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                input(
+                    message: "Approve deployment of build ${BUILD_NUMBER} to EC2?",
+                    ok: 'Approve Deployment'
+                )
+            }
+        }
+
         stage('Deploy to EC2') {
             steps {
                 echo 'Deploying application to EC2...'
@@ -118,7 +130,7 @@ pipeline {
 
     post {
         success {
-            echo 'CI/CD pipeline completed successfully. Application deployed to EC2.'
+            echo 'Continuous Delivery pipeline completed successfully.'
         }
 
         failure {
